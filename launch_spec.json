@@ -1,0 +1,10 @@
+{
+  "INSTANCE_COUNT": "2",
+  "MAX_SPOT_PRICE": "0.08",
+  "USER_DATA_FILE_NAME":"",
+  "ImageId": "ami-bba18dd2",
+  "InstanceType": "t1.micro",
+  "KeyName": "aws-us-east",
+  "Placement": { "AvailabilityZone": "us-east-1c", "GroupName": "" },
+  "SecurityGroups": ["default"]
+}
