@@ -11,7 +11,7 @@ It only means the spot instances successfully launched to an active state
 initialization.
 
 Requires: A json launch specification file.
-          awscli (pip install awscli).
+          awscli (sudo pip install awscli).
           python 2.7 or above.
 
 Example launch spec file required by this script:

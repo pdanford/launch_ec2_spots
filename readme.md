@@ -10,7 +10,7 @@ initialization.
 Requires:
 
 1. A json launch specification file.
-2. awscli (pip install awscli).
+2. awscli (sudo pip install awscli).
 3. python 2.7 or above.
 
 Example launch spec file required by this script:
