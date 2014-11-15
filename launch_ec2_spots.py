@@ -73,7 +73,11 @@ def _process_launch_spec(launch_spec_json):
     on the aws client command line.
     Returns (instanceCount, maxSpotPrice, region_switch, amazon_launch_spec_json)
     """
-    launch_spec = json.loads(launch_spec_json)
+    try:
+    	launch_spec = json.loads(launch_spec_json)
+    except Exception as err:
+        sys.stderr.write("\nThe json launch spec file has a problem at the location indicated below:\n")
+        raise
 
     # Separate the spot price and instance count since these two things are passed as aws cli switches.
     if 'INSTANCE_COUNT' not in launch_spec:
