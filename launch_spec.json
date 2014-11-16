@@ -4,7 +4,7 @@
   "USER_DATA_FILE_NAME":"",
   "ImageId": "ami-bba18dd2",
   "InstanceType": "t1.micro",
-  "KeyName": "aws-pub-key-east",
+  "KeyName": "amazon-ssh-pub-key-tag",
   "Placement": { "AvailabilityZone": "us-east-1c", "GroupName": "" },
   "SecurityGroups": ["default"]
 }

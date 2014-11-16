@@ -5,7 +5,7 @@ Note that this script finishing successfully does not mean the instances
 have completed booting (e.g. you may need to wait a bit for sshd to start).
 It only means the spot instances successfully launched to an active state
 (i.e. the spot request has been fulfilled). Use **-w** to wait for full
-initialization.
+initialization. Use **-h** to see other options.
 
 Requires:
 
