@@ -6,5 +6,11 @@
   "InstanceType": "t1.micro",
   "KeyName": "amazon-ssh-pub-key-tag",
   "Placement": { "AvailabilityZone": "us-east-1c", "GroupName": "" },
-  "SecurityGroups": ["default"]
+  "SecurityGroups": ["default"],
+  "BlockDeviceMappings": [
+        {
+        "VirtualName": "ephemeral0",
+        "DeviceName": "/dev/sdb"
+        }
+    ]
 }

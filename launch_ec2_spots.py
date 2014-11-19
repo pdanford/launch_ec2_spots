@@ -8,7 +8,7 @@ Note that this script finishing successfully does not mean the instances
 have completed booting (e.g. you may need to wait a bit for sshd to start).
 It only means the spot instances successfully launched to an active state
 (i.e. the spot request has been fulfilled). Use -w to wait for full
-initialization.
+initialization. Use -h to see other options.
 
 Requires: A json launch specification file.
           awscli (sudo pip install awscli).
@@ -52,7 +52,12 @@ EC2 launch region is derived from:
    value and overrides any region set by method 1 or 2. Setting a proper AvailabilityZone
    may be desirable when best historical spot price zone is a concern.
 
-Output is instance ID pubilc IP pairs to stdout (see --ppip switch for private IPs instead).
+Troubleshooting:  
+
+Note that some launches may result in requests never finishing (i.e. becoming zombies).
+As an example, if the user data referenced by USER_DATA_FILE_NAME is greater than 16k,
+the Amazon request will stall and not return an error. Ctrl-C can be used while the script
+is in a waiting state to abort the launch and kill the stalled requests.
 
 Feb, 2014
 pdanford@pdanford.com
@@ -202,8 +207,7 @@ def launch_EC2_spot_instances(launch_spec_json, wait_for_full_initialization, pr
     that launched to a running state as specified by launch_spec_json (i.e. does not include IPs of other AMIs
     that may already be running from other requests). See launch spec example at top and --help for more details.
     Raises EnvironmentError if launch fails. Catch Exception for exceptions coming from within the aws client.
-    """
-
+    """    
     # Process launch specification.
     instanceCount, maxSpotPrice, region_switch, amazon_launch_spec_json = _process_launch_spec(launch_spec_json)
 
@@ -223,7 +227,13 @@ def launch_EC2_spot_instances(launch_spec_json, wait_for_full_initialization, pr
     sirIDList = [sir['SpotInstanceRequestId']  for sir in sirData['SpotInstanceRequests']]
 
     # Wait for all instances from this spot request to launch.
-    _wait_for_launch_requests_to_fulfill(sirIDList, region_switch, print_progress_to_stderr)
+    try:
+        _wait_for_launch_requests_to_fulfill(sirIDList, region_switch, print_progress_to_stderr)
+    except (KeyboardInterrupt) as err:
+        # Clean up any pending apparently good or zombied requests.
+        cmd = "aws " + region_switch + " ec2 cancel-spot-instance-requests --spot-instance-request-ids " + " ".join(sirIDList)
+        subprocess.check_output(cmd, shell=True)
+        raise
 
     # Get IPs of instances just successfully launched.
     cmd = "aws " + region_switch + " ec2 describe-instances"
@@ -277,7 +287,7 @@ if __name__ == '__main__':
             launch_spec_json = f.read()
     else:
         sys.stderr.write("\nERROR: Spot instance launch specification file '" + args.launch_spec_file + "' not found!\n\n")
-        exit(1)
+        os._exit(1)
             
     try:
         launchedInstanceList = launch_EC2_spot_instances(launch_spec_json, args.wait, args.progress)
@@ -286,7 +296,7 @@ if __name__ == '__main__':
                 print(instance['InstanceId'] + " \t" + instance['PrivateIpAddress'])        
             else:
                 print(instance['InstanceId'] + " \t" + instance['PublicIpAddress'])
-    except EnvironmentError as err:
+    except (EnvironmentError) as err:
         sys.stderr.write("ERROR.\n")
         for message in err.args:
             sys.stderr.write('[')
@@ -295,15 +305,33 @@ if __name__ == '__main__':
         sys.stderr.write("\nAny pending spot requests from this have been canceled to avoid zombies.\n")
         sys.stderr.write("\n\n")
         sys.stderr.flush()
-        exit(1)
+        try:
+    	    os.remove("amils_temp.json")
+        except:
+            pass
+        os._exit(1)
+    except (KeyboardInterrupt) as err:
+        time.sleep(1) # Wait for boto to dump its Traceback crud first.
+        sys.stderr.write("\n\n*** KeyboardInterrupt - aborting launch ***\n\n")
+        sys.stderr.write("Any pending spot requests are in an unknown state.\n\n\n")
+        sys.stderr.flush()
+        try:
+    	    os.remove("amils_temp.json")
+        except:
+            pass
+        os._exit(1)
     except Exception as err:
         # aws client will print error description.
         try:
             sys.stderr.write(err.args[0])
             sys.stderr.flush()
         except Exception:
-            pass        
+            pass
         sys.stderr.write("\nExiting due to AWS client problem.\n")
         sys.stderr.write("\n\n")
         sys.stderr.flush()
-        exit(1)
+        try:
+    	    os.remove("amils_temp.json")
+        except:
+            pass
+        os._exit(1)

@@ -54,7 +54,15 @@ EC2 launch region is derived from:
    value and overrides any region set by method 1 or 2. Setting a proper AvailabilityZone
    may be desirable when best historical spot price zone is a concern.
 
-Output is instance ID pubilc IP pairs to stdout (use **--ppip** for private IPs instead).
+Troubleshooting:  
 
+Note that some launches may result in requests never finishing (i.e. becoming zombies).
+As an example, if the user data referenced by USER\_DATA\_FILE\_NAME is greater than 16k,
+the Amazon request will stall and not return an error. Ctrl-c can be used while the script
+is in a waiting state to abort the launch and kill the stalled requests. Note that ctrl-c 
+should not be hit multiple times as this may interfere with cleanup operations.
+
+Also, if you get an error back like "utf-8" or "ascii", it means the user data you're trying to
+send is not text (i.e. not a text or base64 file).
 
 pdanford@pdanford.com - Feb, 2014
