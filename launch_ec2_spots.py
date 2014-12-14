@@ -63,13 +63,14 @@ Feb, 2014
 pdanford@pdanford.com
 """
 
+version = "1.0"
+
 import os
 import sys
 import json
 import time
 import base64
 import subprocess
-
 
 def _process_launch_spec(launch_spec_json):
     """
@@ -266,23 +267,27 @@ if __name__ == '__main__':
                         help="json file specifying spot launch request parameters.")
 
     parser.add_argument('-w', '--wait', action="store_true",
-                        help="Wait until AWS reports a passed status for all launched AMIs. The default is \
+                        help="wait until AWS reports a passed status for all launched AMIs. The default is \
                               to wait only until the 'initializing' stage which means the spot request was \
                               successful and the AMI will or is booting; things like sshd may not be up \
                               yet. However, using this option may cause a longer wait than necessary (e.g. \
                               sshd is actaully up on the launched instance(s), but AWS shows the instance(s) \
-                              as still initializing for another minute or so).")
+                              as still initializing for another minute or so)")
 
     parser.add_argument('-p', '--progress', action="store_true",
-                        help="Print progress to stderr.")
+                        help="print progress to stderr")
 
     parser.add_argument('--ppip', action="store_true",
-                        help="Print AMI instance private IPs instead of the public IPs to stdout.")
+                        help="print AMI instance private IPs instead of the public IPs to stdout")
 
-    parser.add_argument('--version', action="store_true",
-                        help="Print version number.")
+    parser.add_argument('-v','--version', action="store_true",
+                        help="print version number")
 
     args = parser.parse_args()
+
+    if args.version:
+        sys.stderr.write("launch_ec2_spots.py version " + version + "\n")
+        os._exit(0)
 
     # Load launch specification.
     if os.path.isfile(args.launch_spec_file):
@@ -314,7 +319,7 @@ if __name__ == '__main__':
             pass
         os._exit(1)
     except (KeyboardInterrupt) as err:
-        time.sleep(1) # Wait for boto to dump its Traceback crud first.
+        time.sleep(1) # Wait for boto thread to dump its Traceback crud first.
         sys.stderr.write("\n\n*** KeyboardInterrupt - aborting launch ***\n\n")
         sys.stderr.write("Any pending spot requests are in an unknown state.\n\n\n")
         sys.stderr.flush()
