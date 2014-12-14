@@ -262,7 +262,7 @@ if __name__ == '__main__':
                                      formatter_class=CustomFormatter,
                                      epilog=__doc__)
 
-    parser.add_argument('-l', dest='LAUNCH_SPEC_FILE', default='launch_spec.json',
+    parser.add_argument('-l', dest='launch_spec_file', default='launch_spec.json',
                         help="json file specifying spot launch request parameters.")
 
     parser.add_argument('-w', '--wait', action="store_true",
@@ -279,11 +279,14 @@ if __name__ == '__main__':
     parser.add_argument('--ppip', action="store_true",
                         help="Print AMI instance private IPs instead of the public IPs to stdout.")
 
+    parser.add_argument('--version', action="store_true",
+                        help="Print version number.")
+
     args = parser.parse_args()
 
     # Load launch specification.
-    if os.path.isfile(args.LAUNCH_SPEC_FILE):
-        with open(args.LAUNCH_SPEC_FILE, 'r') as f:
+    if os.path.isfile(args.launch_spec_file):
+        with open(args.launch_spec_file, 'r') as f:
             launch_spec_json = f.read()
     else:
         sys.stderr.write("\nERROR: Spot instance launch specification file '" + args.launch_spec_file + "' not found!\n\n")
