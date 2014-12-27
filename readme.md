@@ -1,9 +1,9 @@
 Script to launch spot instances in Amazon's EC2 as specified by a json launch specification file.
 --------------------------------------------------------------------------------------------
 
-Default behavior is to only submit a launch request to AWS and return immediately.
-See **--wait** and **--fullwait** for other levels of spot request fulfillment confirmation
-from AWS. Use **-h** to see other options.
+Default behavior is to only submit a launch request to AWS and return immediately. <br>
+See **--wait** and **--fullwait** for other levels of spot request fulfillment confirmation options. <br>
+Use **-h** to see other options.
 
 Requires:
 
@@ -32,8 +32,8 @@ Example json launch specification file required by launch\_ec2\_spots.py:
       "Placement": { "AvailabilityZone": "us-east-1c", "GroupName": "" },
       "SecurityGroups": ["default"]
     }
-Any additional Amazon launch specification defined fields may be added as needed. See
-[here](http://docs.aws.amazon.com/cli/latest/reference/ec2/request-spot-instances.html)
+Any additional Amazon launch specification defined fields may be added as needed. <br>
+See [here](http://docs.aws.amazon.com/cli/latest/reference/ec2/request-spot-instances.html)
 (the --launch-specification section) for more info.
 
 USER\_DATA\_FILE\_NAME value is optional and specifies a file containing user data to be
