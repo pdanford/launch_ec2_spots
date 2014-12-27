@@ -54,10 +54,12 @@ Troubleshooting:
 Note that some launches may result in requests never finishing (i.e. becoming zombies).
 As an example, if the user data referenced by USER_DATA_FILE_NAME is greater than 16k,
 the AWS request may stall and not return an error. Ctrl-C can be used while the script
-is in a waiting state to abort the launch and kill the stalled requests.
+is in a waiting state to abort the launch and kill the stalled requests. Also, if you
+get an error back like "utf-8" or "ascii", it means the user data you're trying to send
+is not text (i.e. not text or base64 encoded data).
 
-pdanford@pdanford.com - Feb, 2014
-Copyright (c) 2014 Peter Danford
+pdanford@pdanford.com
+Copyright (C) 2014 Peter Danford
 """
 
 version = "2.0"
@@ -145,7 +147,9 @@ def _wait_for_full_initialization(launchedInstanceList, region_switch, print_pro
         for launchedInstance in launchedInstanceList:
             for status in statuses['InstanceStatuses']:
                 if (launchedInstance['InstanceId'] == status['InstanceId'] and
+                    status['SystemStatus']['Status'] != '' and
                     status['SystemStatus']['Status'] != 'initializing' and
+                    status['InstanceStatus']['Status'] != '' and
                     status['InstanceStatus']['Status'] != 'initializing'):
                     oks += 1
 
@@ -238,13 +242,24 @@ def launch_EC2_spot_instances(launch_spec_json, waitLevel, print_progress_to_std
         subprocess.check_output(cmd, shell=True)
         raise
 
-    # Get IPs of instances just successfully launched.
-    cmd = "aws " + region_switch + " ec2 describe-instances"
-    instancesData = json.loads(subprocess.check_output(cmd, shell=True, universal_newlines=True))
-    launchedInstanceList = [
-      {'InstanceId':instance['InstanceId'], 'PublicIpAddress':instance['PublicIpAddress'], 'PrivateIpAddress':instance['PrivateIpAddress']}
-      for reservation in instancesData['Reservations']  for instance in reservation['Instances']  if ('SpotInstanceRequestId' in instance and
-                                                                                                      instance['SpotInstanceRequestId'] in sirIDList)  ]
+    # Sometimes AWS describe-instances doesn't work as expected right away after a successful launch (e.g. InvalidInstanceID.NotFound).
+    # So put it in a try block and also verify the correct number of launched instance data is returned.
+    IP_retrieval_loop = True
+    while IP_retrieval_loop:
+        try:
+            # Get IPs of instances just successfully launched.
+            time.sleep(2) # Don't flood Amazon with status requests.
+            cmd = "aws " + region_switch + " ec2 describe-instances"
+            instancesData = json.loads(subprocess.check_output(cmd, shell=True, universal_newlines=True))
+            launchedInstanceList = [
+              {'InstanceId':instance['InstanceId'], 'PublicIpAddress':instance['PublicIpAddress'], 'PrivateIpAddress':instance['PrivateIpAddress']}
+              for reservation in instancesData['Reservations']  for instance in reservation['Instances']  if ('SpotInstanceRequestId' in instance and
+                                                                                                              instance['SpotInstanceRequestId'] in sirIDList) ]
+            if len(launchedInstanceList) == len(sirIDList):
+                IP_retrieval_loop = False
+        except Exception:
+            pass
+
     if waitLevel == "fullWait":
         _wait_for_full_initialization(launchedInstanceList, region_switch, print_progress_to_stderr)
             
