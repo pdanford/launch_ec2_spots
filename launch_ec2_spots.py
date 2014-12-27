@@ -1,20 +1,26 @@
 #!/usr/bin/env python
 
 """
-Script to launch spot instances in Amazon's EC2 as specified by a launch
+Script to launch spot instances in Amazon's EC2 as specified by a json launch
 specification file.
 
-Note that this script finishing successfully does not mean the instances
-have completed booting (e.g. you may need to wait a bit for sshd to start).
-It only means the spot instances successfully launched to an active state
-(i.e. the spot request has been fulfilled). Use -w to wait for full
-initialization. Use -h to see other options.
+Default behavior is to only submit a launch request to AWS and return immediately.
+See --wait and --fullwait for other levels of spot request fulfillment confirmation
+from AWS. Use -h to see other options.
 
-Requires: A json launch specification file.
-          awscli (sudo pip install awscli).
+Requires: awscli (sudo pip install awscli).
+          A json launch specification file.
           python 2.7 or above.
 
-Example launch spec file required by this script:
+Note that awscli requires the environment variables AWS_ACCESS_KEY_ID and
+AWS_SECRET_ACCESS_KEY to be set, or alternatively, the configuration
+file ~/.aws/config on Linux/OSX or C:\\Users\\USERNAME\\.aws\\config on Windows.
+A minimal example of this file is:
+  [default]
+  aws_access_key_id = YOUR_ACCESS_KEY
+  aws_secret_access_key = YOUR_SECRET_KEY
+
+Example json launch specification file required by launch_ec2_spots.py:
   {
     "INSTANCE_COUNT": "2",
     "MAX_SPOT_PRICE": "0.08",
@@ -27,18 +33,10 @@ Example launch spec file required by this script:
   }
 Any additional Amazon launch specification defined fields may be added as needed. See
 http://docs.aws.amazon.com/cli/latest/reference/ec2/request-spot-instances.html
-for more info.
+(the --launch-specification section) for more info.
 
-awscli requires the environment variables AWS_ACCESS_KEY_ID and
-AWS_SECRET_ACCESS_KEY to be set, or alternatively, the configuration
-file ~/.aws/config on Linux/OSX or C:\\Users\\USERNAME\\.aws\\config on Windows.
-A minimal example of this file is:
-  [default]
-  aws_access_key_id = YOUR_ACCESS_KEY
-  aws_secret_access_key = YOUR_SECRET_KEY
-
-USER_DATA_FILE_NAME is optional and specifies a file containing user data to be made
-available to all launched AMIs. Note that if the user data begins with an interpreter
+USER_DATA_FILE_NAME value is optional and specifies a file containing user data to be
+made available to all launched AMIs. Note that if the user data begins with an interpreter
 (e.g. #!/bin/bash), an Amazon supplied AMI will regard the user data as a bootstrap
 script and automatically run it (as root) at AMI boot time.
 
@@ -52,18 +50,17 @@ EC2 launch region is derived from:
    value and overrides any region set by method 1 or 2. Setting a proper AvailabilityZone
    may be desirable when best historical spot price zone is a concern.
 
-Troubleshooting:  
-
+Troubleshooting:
 Note that some launches may result in requests never finishing (i.e. becoming zombies).
 As an example, if the user data referenced by USER_DATA_FILE_NAME is greater than 16k,
-the Amazon request will stall and not return an error. Ctrl-C can be used while the script
+the AWS request may stall and not return an error. Ctrl-C can be used while the script
 is in a waiting state to abort the launch and kill the stalled requests.
 
-Feb, 2014
-pdanford@pdanford.com
+pdanford@pdanford.com - Feb, 2014
+Copyright (c) 2014 Peter Danford
 """
 
-version = "1.0"
+version = "2.0"
 
 import os
 import sys
@@ -199,8 +196,7 @@ def _wait_for_launch_requests_to_fulfill(sirIDList, region_switch, print_progres
                           instanceRequest['Status']['Code'] == 'canceled-before-fulfillment'):
                         raise EnvironmentError(instanceRequest['Status']['Code'], instanceRequest['Status']['Message'])
 
-
-def launch_EC2_spot_instances(launch_spec_json, wait_for_full_initialization, print_progress_to_stderr = False):
+def launch_EC2_spot_instances(launch_spec_json, waitLevel, print_progress_to_stderr = False):
     """
     Launches EC2 spot instances.
     Returns a list of AMIs that launched as a result of the current request in the form of:
@@ -223,6 +219,12 @@ def launch_EC2_spot_instances(launch_spec_json, wait_for_full_initialization, pr
           " --spot-price " + maxSpotPrice + " --launch-specification file://amils_temp.json"
     sirData = json.loads(subprocess.check_output(cmd, shell=True, universal_newlines=True))
     os.remove("amils_temp.json")
+
+    if waitLevel != "wait" and waitLevel != "fullWait":
+        if print_progress_to_stderr:
+            sys.stderr.write('Requests submitted to AWS but not waiting for fulfillment confirmation.\n')
+            sys.stderr.flush()
+        return []
     
     # Make a list of spot instance request IDs to match against running AMI instances.
     sirIDList = [sir['SpotInstanceRequestId']  for sir in sirData['SpotInstanceRequests']]
@@ -243,7 +245,7 @@ def launch_EC2_spot_instances(launch_spec_json, wait_for_full_initialization, pr
       {'InstanceId':instance['InstanceId'], 'PublicIpAddress':instance['PublicIpAddress'], 'PrivateIpAddress':instance['PrivateIpAddress']}
       for reservation in instancesData['Reservations']  for instance in reservation['Instances']  if ('SpotInstanceRequestId' in instance and
                                                                                                       instance['SpotInstanceRequestId'] in sirIDList)  ]
-    if wait_for_full_initialization:
+    if waitLevel == "fullWait":
         _wait_for_full_initialization(launchedInstanceList, region_switch, print_progress_to_stderr)
             
     if print_progress_to_stderr:
@@ -267,23 +269,31 @@ if __name__ == '__main__':
                         help="json file specifying spot launch request parameters.")
 
     parser.add_argument('-w', '--wait', action="store_true",
-                        help="wait until AWS reports a passed status for all launched AMIs. The default is \
-                              to wait only until the 'initializing' stage which means the spot request was \
-                              successful and the AMI will or is booting; things like sshd may not be up \
-                              yet. However, using this option may cause a longer wait than necessary (e.g. \
-                              sshd is actaully up on the launched instance(s), but AWS shows the instance(s) \
-                              as still initializing for another minute or so)")
+                        help="Wait only until the AWS 'initializing' stage which means the spot request \
+                              was successfully fulfilled by AWS and the AMI will or is booting; things \
+                              like sshd may not be up yet.")
+
+    parser.add_argument('-W', '--fullwait', action="store_true",
+                        help="Wait until AWS reports a passed status for all launched AMIs in addition to \
+                              waiting for the 'initializing' stage to complete. However, using this option \
+                              may cause a longer wait than necessary (e.g. sshd is actually up on the \
+                              launched instance(s), but AWS shows the instance(s) as still initializing \
+                              for another minute or so). Implies --wait.")
 
     parser.add_argument('-p', '--progress', action="store_true",
-                        help="print progress to stderr")
+                        help="Print launch status progress to stderr.")
 
-    parser.add_argument('--ppip', action="store_true",
-                        help="print AMI instance private IPs instead of the public IPs to stdout")
+    parser.add_argument('-d', '--details', action="store_true",
+                        help="Print details for launched AMI instance(s): 'InstanceId  PublicIpAddress  PrivateIpAddress' \
+                              to stdout. Implies --wait.")
 
     parser.add_argument('-v','--version', action="store_true",
-                        help="print version number")
+                        help="Print version number of this script.")
 
     args = parser.parse_args()
+
+    if args.details and not args.fullwait:
+        args.wait = True
 
     if args.version:
         sys.stderr.write("launch_ec2_spots.py version " + version + "\n")
@@ -298,12 +308,17 @@ if __name__ == '__main__':
         os._exit(1)
             
     try:
-        launchedInstanceList = launch_EC2_spot_instances(launch_spec_json, args.wait, args.progress)
+        waitLevel = ""
+        if args.fullwait:
+            waitLevel = "fullWait"
+        elif args.wait:
+            waitLevel = "wait"
+
+        launchedInstanceList = launch_EC2_spot_instances(launch_spec_json, waitLevel, args.progress)
         for instance in launchedInstanceList:
-            if args.ppip:
-                print(instance['InstanceId'] + " \t" + instance['PrivateIpAddress'])        
-            else:
-                print(instance['InstanceId'] + " \t" + instance['PublicIpAddress'])
+            if args.details:
+                print(instance['InstanceId'] + " \t"  + instance['PublicIpAddress'] + " \t" + instance['PrivateIpAddress'])  
+
     except (EnvironmentError) as err:
         sys.stderr.write("ERROR.\n")
         for message in err.args:
