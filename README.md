@@ -48,7 +48,7 @@ EC2 launch region is derived from:
 3. Placement:AvailabilityZone specified in launch spec file as in the above example; if
    AvailabilityZone is set to something like "us-east-1" instead of a proper "us-east-1c", 
    then the placement will be in the region us-east-1 and the actual zone will be
-   determined by Amazon. In both cases, the region is derived from the AvailabilityZone
+   chosen by Amazon. In both cases, the region is derived from the AvailabilityZone
    value and overrides any region set by method 1 or 2. Setting a proper AvailabilityZone
    may be desirable when best historical spot price zone is a concern.
 
@@ -60,5 +60,4 @@ is in a waiting state to abort the launch and kill the stalled requests. Also, i
 an error back like "utf-8" or "ascii", it means the user data you're trying to send is not
 text (i.e. not text or base64 encoded data).
 
-pdanford@pdanford.com <br>
-Copyright (C) 2014 Peter Danford
+pdanford - Mar 2014. MIT License, etc.
